@@ -9,6 +9,9 @@ pub enum McaError {
     #[error("No region header")]
     MissingHeader,
 
+    #[error("Invalid chunk: {0}")]
+    InvalidChunkPayload(String),
+
     #[error("Io failed: {0}")]
     IoError(#[from] std::io::Error),
 

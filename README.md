@@ -21,7 +21,7 @@ File::open("r.0.0.mca")?.read_to_end(&mut data)?;
 let region = Region::new(&data)?;
 
 // Get a specific chunk based of it's chunk coordinates
-let chunk = region.get_chunk(0, 0)?;
+let chunk = region.get_chunk(0, 0)?.unwrap();
 
 // Decompress the chunk data
 // This will most commonly be either ZLib or LZ4 compressed

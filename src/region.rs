@@ -1,0 +1,173 @@
+use crate::{chunk::RawChunk, compression::CompressionType, McaError};
+
+const SECTOR_SIZE: usize = 4096;
+
+/// A Minecraft region
+///
+/// This struct is just a wrapper around `&'a [u8]`   
+/// but provides methods to get chunk byte slices & header data.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Region<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Region<'a> {
+    /// Initializes a new region  
+    /// Validates that the region size is at least the size of the header
+    pub fn new(data: &'a [u8]) -> Result<Region<'a>, McaError> {
+        if data.len() < (SECTOR_SIZE * 2) {
+            return Err(McaError::MissingHeader);
+        }
+
+        Ok(Region { data })
+    }
+
+    /// Get the inner data of the region
+    pub fn inner(&self) -> &'a [u8] {
+        self.data
+    }
+
+    /// Get a offset depending on the chunk coordinates.  
+    /// Used in getting byte offsets for chunk location & timestamp in headers
+    #[inline(always)]
+    pub fn chunk_offset(x: usize, z: usize) -> usize {
+        assert!(x < 32);
+        assert!(z < 32);
+
+        4 * ((x & 31) + (z & 31) * 32)
+    }
+
+    /// Get a single [`RawChunk`] based of it's chunk coordinates relative to the region itself.  
+    /// Will return [`None`] if chunk hasn't been generated yet.
+    pub fn get_chunk(&self, x: usize, z: usize) -> Result<Option<RawChunk>, McaError> {
+        // just so we dont have to call .len() more than needed, data len stays the same
+        let data_len = self.data.len();
+
+        let offset = Region::chunk_offset(x, z);
+
+        let chunk_location = match self.get_location(offset) {
+            Some(loc) => loc,
+            None => return Ok(None),
+        };
+
+        // fill the first byte when doing the 3 first chunk location offset
+        let endians =
+            u32::from_be_bytes([0, chunk_location[0], chunk_location[1], chunk_location[2]])
+                as usize;
+
+        let payload_offset: usize = endians * SECTOR_SIZE;
+
+        if data_len < (payload_offset + 4) {
+            return Err(McaError::InvalidChunkPayload(
+                "Not enough data for chunk payload".to_string(),
+            ));
+        }
+
+        let byte_length = u32::from_be_bytes(unsafe {
+            [
+                *self.data.get_unchecked(payload_offset),
+                *self.data.get_unchecked(payload_offset + 1),
+                *self.data.get_unchecked(payload_offset + 2),
+                *self.data.get_unchecked(payload_offset + 3),
+            ]
+        }) as usize;
+
+        if data_len < payload_offset + byte_length {
+            return Err(McaError::InvalidChunkPayload(
+                "Not enough data for chunk bytes".to_string(),
+            ));
+        }
+
+        let payload_offset = payload_offset + 4;
+
+        let compression_type =
+            CompressionType::from(unsafe { *self.data.get_unchecked(payload_offset) });
+
+        let raw_data = &self.data[payload_offset + 1..=payload_offset + byte_length];
+
+        Ok(Some(RawChunk::new(raw_data, compression_type)))
+    }
+
+    /// Get the chunk payload location based off chunk coordinate byte offsets
+    #[inline]
+    pub fn get_location(&self, offset: usize) -> Option<[u8; 4]> {
+        unsafe {
+            let first = *self.data.get_unchecked(offset);
+            let last = *self.data.get_unchecked(offset + 3);
+
+            // Empty chunk locations, hasnt been generated if None
+            if first == 0 && last == 0 {
+                return None;
+            }
+
+            let loc = [
+                first,
+                *self.data.get_unchecked(offset + 1),
+                *self.data.get_unchecked(offset + 2),
+                last,
+            ];
+
+            Some(loc)
+        }
+    }
+
+    /// Get the timestamp big endian bytes for the chunk based off chunk coordinate byte offsets
+    #[inline]
+    pub fn get_timestamp(&self, offset: usize) -> [u8; 4] {
+        unsafe {
+            [
+                *self.data.get_unchecked(SECTOR_SIZE + offset),
+                *self.data.get_unchecked(SECTOR_SIZE + offset + 1),
+                *self.data.get_unchecked(SECTOR_SIZE + offset + 2),
+                *self.data.get_unchecked(SECTOR_SIZE + offset + 3),
+            ]
+        }
+    }
+
+    /// Converts the timestamp bytes to u32 unix epoch seconds
+    #[inline]
+    pub fn get_u32_timestamp(&self, timestamp_bytes: [u8; 4]) -> u32 {
+        u32::from_be_bytes(timestamp_bytes)
+    }
+
+    pub fn iter(&self) -> RegionIter {
+        RegionIter {
+            region: self,
+            index: 0,
+        }
+    }
+}
+
+/// An iterator over all chunks inside a region
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RegionIter<'a> {
+    region: &'a Region<'a>,
+    index: usize,
+}
+
+impl<'a> RegionIter<'a> {
+    /// The max size of chunks inside one region
+    pub const MAX: usize = 32 * 32;
+
+    /// Get the chunk coordinate based off (index / [`RegionIter::MAX`])
+    pub fn get_chunk_coordinate(index: usize) -> (usize, usize) {
+        (index % 32, index / 32)
+    }
+}
+
+impl<'a> Iterator for RegionIter<'a> {
+    type Item = Result<Option<RawChunk<'a>>, McaError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < RegionIter::MAX {
+            let (x, z) = RegionIter::get_chunk_coordinate(self.index);
+            self.index += 1;
+
+            let chunk = self.region.get_chunk(x, z);
+
+            Some(chunk)
+        } else {
+            None
+        }
+    }
+}
