@@ -63,6 +63,7 @@ impl<'a> Region<'a> {
             ));
         }
 
+        #[cfg(feature = "unsafe")]
         let byte_length = u32::from_be_bytes(unsafe {
             [
                 *self.data.get_unchecked(payload_offset),
@@ -72,6 +73,23 @@ impl<'a> Region<'a> {
             ]
         }) as usize;
 
+        #[cfg(not(feature = "unsafe"))]
+        let byte_length = {
+            let byte_length = self
+                .data
+                .get(payload_offset..payload_offset + 4)
+                .ok_or(McaError::OutOfBoundsByte)?;
+
+            let byte_length = [
+                byte_length[0],
+                byte_length[1],
+                byte_length[2],
+                byte_length[3],
+            ];
+
+            u32::from_be_bytes(byte_length) as usize
+        };
+
         if data_len < payload_offset + byte_length {
             return Err(McaError::InvalidChunkPayload(
                 "Not enough data for chunk bytes".to_string(),
@@ -80,14 +98,24 @@ impl<'a> Region<'a> {
 
         let payload_offset = payload_offset + 4;
 
+        #[cfg(feature = "unsafe")]
         let compression_type =
             CompressionType::from(unsafe { *self.data.get_unchecked(payload_offset) });
+
+        #[cfg(not(feature = "unsafe"))]
+        let compression_type = CompressionType::from(
+            *self
+                .data
+                .get(payload_offset)
+                .ok_or(McaError::OutOfBoundsByte)?,
+        );
 
         let raw_data = &self.data[payload_offset + 1..=payload_offset + byte_length];
 
         Ok(Some(RawChunk::new(raw_data, compression_type)))
     }
 
+    #[cfg(feature = "unsafe")]
     /// Get the chunk payload location based off chunk coordinate byte offsets
     #[inline]
     pub fn get_location(&self, offset: usize) -> Option<[u8; 4]> {
@@ -111,6 +139,24 @@ impl<'a> Region<'a> {
         }
     }
 
+    #[cfg(not(feature = "unsafe"))]
+    /// Get the chunk payload location based off chunk coordinate byte offsets
+    #[inline]
+    pub fn get_location(&self, offset: usize) -> Option<[u8; 4]> {
+        let bytes = self.data.get(offset..offset + 4);
+
+        if let Some(bytes) = bytes {
+            if bytes[0] == 0 && bytes[3] == 0 {
+                return None;
+            }
+
+            Some([bytes[0], bytes[1], bytes[2], bytes[3]])
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "unsafe")]
     /// Get the timestamp big endian bytes for the chunk based off chunk coordinate byte offsets
     #[inline]
     pub fn get_timestamp(&self, offset: usize) -> [u8; 4] {
@@ -122,6 +168,20 @@ impl<'a> Region<'a> {
                 *self.data.get_unchecked(SECTOR_SIZE + offset + 3),
             ]
         }
+    }
+
+    #[cfg(not(feature = "unsafe"))]
+    /// Get the timestamp big endian bytes for the chunk based off chunk coordinate byte offsets
+    #[inline]
+    pub fn get_timestamp(&self, offset: usize) -> Result<[u8; 4], McaError> {
+        let offset = SECTOR_SIZE + offset;
+
+        let bytes = self
+            .data
+            .get(offset..offset + 4)
+            .ok_or(McaError::OutOfBoundsByte)?;
+
+        Ok([bytes[0], bytes[1], bytes[2], bytes[3]])
     }
 
     /// Converts the timestamp bytes to u32 unix epoch seconds

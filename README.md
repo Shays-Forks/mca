@@ -2,11 +2,6 @@
 
 A simple but effective & fast parser for Minecrafts Region Files (mca).
 
-It does use **`unsafe`** rust with a few `get_unchecked` calls.  
-I've thrown some few hundred MB of region files and no problems occured.
-
-Getting a single chunk is done in just `3.1ns` (on my machine), which is pretty blazingly fast.
-
 ## Example
 
 ```rust
@@ -31,16 +26,21 @@ let decompressed = chunk.decompress()?;
 // I recommend either `simdnbt` or `fastnbt` for this.
 ```
 
+## Unsafe Feature
+
+Toggling the `unsafe` feature will add unsafe `get_unchecked` calls to the code.  
+And this improves the performance by about 50% - 100% (were talking 2-3ns faster).  
+I *think* i have added enough manual bound checks to make this safe, but i can't guarantee it.  
+
+I've tested this on a few hundred MBs of region files and no issues at all.  
+
+*Do note that enabling `unsafe` changes the function signature of `Region::get_timestamp` to return a result*
+
 ## Benchmarks
 
 There is one benchmark included that compares against the only other  
-mca parser that i could find (`mca-parser`) and this crate is just like `1-3ns` faster.  
+mca parser that i could find (`mca-parser`) and this crate is just like `1-3ns` faster (with `unsafe`).  
 A very stupid, marginal error difference, but uhh this seems "faster".
 
-you can run it with `cargo bench`.
+you can run it with `cargo bench` or `cargo bench --features unsafe` for the unsafe version.
 
-## Unsafe part
-
-All unsafe calls are `get_unchecked`, i haven't tested with the safe version yet.  
-But the perf might just not be a difference at all or be better, who knows. gotta test it.  
-but so far this crate is **unsafe**

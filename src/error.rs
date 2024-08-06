@@ -12,6 +12,10 @@ pub enum McaError {
     #[error("Invalid chunk: {0}")]
     InvalidChunkPayload(String),
 
+    #[cfg(not(feature = "unsafe"))]
+    #[error("Out of bounds byte access")]
+    OutOfBoundsByte,
+
     #[error("Io failed: {0}")]
     IoError(#[from] std::io::Error),
 

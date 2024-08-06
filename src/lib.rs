@@ -50,7 +50,11 @@ mod tests {
     #[test]
     fn get_timestamp() {
         let region = Region::new(REGION).unwrap();
+        #[cfg(feature = "unsafe")]
         let timestamp = region.get_timestamp(Region::chunk_offset(0, 0));
+
+        #[cfg(not(feature = "unsafe"))]
+        let timestamp = region.get_timestamp(Region::chunk_offset(0, 0)).unwrap();
 
         assert_eq!(timestamp, [102, 128, 130, 115]);
     }
