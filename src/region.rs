@@ -110,7 +110,7 @@ impl<'a> Region<'a> {
                 .ok_or(McaError::OutOfBoundsByte)?,
         );
 
-        let raw_data = &self.data[payload_offset + 1..=payload_offset + byte_length];
+        let raw_data = &self.data[payload_offset + 1..payload_offset + byte_length];
 
         Ok(Some(RawChunk::new(raw_data, compression_type)))
     }
