@@ -14,12 +14,13 @@ categories = ["game-development", "parsing"]
 
 [dependencies]
 thiserror = "1.0"
-miniz_oxide = { version = "0.7.4", features = ["std"] }
-lz4_flex = "0.11.3"
+miniz_oxide = { version = "0.8.0", features = ["std"] }
+lz4-java-wrc = "0.2.0"
 
 [dev-dependencies]
 criterion = "0.5.1"
 mca-parser = "1.0.2"
+sculk = { git = "https://github.com/VilleOlof/sculk" }
 
 [[bench]]
 name = "region_parsing"

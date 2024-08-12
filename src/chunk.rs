@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use crate::{compression::CompressionType, McaError};
 
 /// A raw compressed chunk, holds the compression type used.  
@@ -25,7 +27,11 @@ impl<'a> RawChunk<'a> {
                 &self.raw_data,
             )?),
             CompressionType::Uncompressed => Ok(self.raw_data.to_vec()),
-            CompressionType::LZ4 => Ok(lz4_flex::decompress_size_prepended(self.raw_data)?),
+            CompressionType::LZ4 => Ok({
+                let mut buf: Vec<u8> = Vec::new();
+                lz4_java_wrc::Lz4BlockInput::new(&self.raw_data[..]).read_to_end(&mut buf).unwrap();
+                buf
+            }),
             CompressionType::GZip => unimplemented!("This is unused in practice and if you somehow need this, make an issue on github and i'll add it <3"),
             CompressionType::Custom => unimplemented!("Haven't implemented this and i don't personally need this but make an issue on github and i'll fix it <3")
         }

@@ -21,7 +21,4 @@ pub enum McaError {
 
     #[error("Zlib Decompression failed: {0}")]
     ZLib(#[from] inflate::DecompressError),
-
-    #[error("LZ4 Decompression failed: {0}")]
-    Lz4Error(#[from] lz4_flex::block::DecompressError),
 }

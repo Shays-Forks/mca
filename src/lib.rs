@@ -40,6 +40,23 @@ mod tests {
     }
 
     #[test]
+    fn parse_nbt() {
+        let region = Region::new(REGION).unwrap();
+        let chunk = region.get_chunk(18, 17).unwrap().unwrap();
+
+        let data = chunk.decompress().unwrap();
+        let _ = sculk::chunk::Chunk::from_bytes(&data).unwrap();
+    }
+
+    #[test]
+    fn decompress() {
+        let region = Region::new(REGION).unwrap();
+        let chunk = region.get_chunk(18, 17).unwrap().unwrap();
+
+        let _ = chunk.decompress().unwrap();
+    }
+
+    #[test]
     fn get_location() {
         let region = Region::new(REGION).unwrap();
         let location = region.get_location(Region::chunk_offset(0, 0)).unwrap();
