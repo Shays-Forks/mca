@@ -3,7 +3,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 const REGION: &[u8] = include_bytes!("r.0.0.mca");
 
 fn mca() {
-    let parsed = mca::Region::new(REGION).unwrap();
+    let parsed = mca::RegionReader::new(REGION).unwrap();
     parsed.get_chunk(0, 0).unwrap();
 }
 

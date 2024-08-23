@@ -1,12 +1,16 @@
 mod chunk;
 mod compression;
 mod error;
-mod region;
+mod reader;
+mod writer;
 
-pub use chunk::RawChunk;
+pub use chunk::{PendingChunk, RawChunk};
 pub use compression::CompressionType;
 pub use error::McaError;
-pub use region::{Region, RegionIter};
+pub use reader::{RegionIter, RegionReader};
+pub use writer::RegionWriter;
+
+const SECTOR_SIZE: usize = 4096;
 
 #[cfg(test)]
 mod tests {
@@ -16,14 +20,14 @@ mod tests {
 
     #[test]
     fn new_region() {
-        let region = Region::new(REGION).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
 
         assert_eq!(region.inner().len(), REGION.len());
     }
 
     #[test]
     fn chunk_parse() {
-        let region = Region::new(REGION).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
         let chunk = region.get_chunk(0, 0).unwrap().unwrap();
 
         assert_eq!(chunk.get_compression_type(), CompressionType::Zlib);
@@ -32,7 +36,7 @@ mod tests {
 
     #[test]
     fn entire_region() {
-        let region = Region::new(REGION).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
 
         for chunk in region.iter() {
             let _ = chunk.unwrap();
@@ -41,7 +45,7 @@ mod tests {
 
     #[test]
     fn parse_nbt() {
-        let region = Region::new(REGION).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
         let chunk = region.get_chunk(18, 17).unwrap().unwrap();
 
         let data = chunk.decompress().unwrap();
@@ -50,7 +54,7 @@ mod tests {
 
     #[test]
     fn decompress() {
-        let region = Region::new(REGION).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
         let chunk = region.get_chunk(18, 17).unwrap().unwrap();
 
         let _ = chunk.decompress().unwrap();
@@ -58,20 +62,24 @@ mod tests {
 
     #[test]
     fn get_location() {
-        let region = Region::new(REGION).unwrap();
-        let location = region.get_location(Region::chunk_offset(0, 0)).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
+        let location = region
+            .get_location(RegionReader::chunk_offset(0, 0))
+            .unwrap();
 
         assert_eq!(location, [0, 3, 22, 2]);
     }
 
     #[test]
     fn get_timestamp() {
-        let region = Region::new(REGION).unwrap();
+        let region = RegionReader::new(REGION).unwrap();
         #[cfg(feature = "unsafe")]
-        let timestamp = region.get_timestamp(Region::chunk_offset(0, 0));
+        let timestamp = reader.get_timestamp(RegionReader::chunk_offset(0, 0));
 
         #[cfg(not(feature = "unsafe"))]
-        let timestamp = region.get_timestamp(Region::chunk_offset(0, 0)).unwrap();
+        let timestamp = region
+            .get_timestamp(RegionReader::chunk_offset(0, 0))
+            .unwrap();
 
         assert_eq!(timestamp, [102, 128, 130, 115]);
     }
@@ -81,7 +89,7 @@ mod tests {
         let mut bytes = vec![0, 0, 2, 1]; // offset 2 * SECTOR_SIZE
         bytes.extend_from_slice(&[0; 8188]);
 
-        let region = Region::new(&bytes).unwrap();
+        let region = RegionReader::new(&bytes).unwrap();
 
         let chunk = region.get_chunk(0, 0);
 

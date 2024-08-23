@@ -1,25 +1,23 @@
-use crate::{chunk::RawChunk, compression::CompressionType, McaError};
-
-const SECTOR_SIZE: usize = 4096;
+use crate::{chunk::RawChunk, compression::CompressionType, McaError, SECTOR_SIZE};
 
 /// A Minecraft region
 ///
 /// This struct is just a wrapper around `&'a [u8]`   
 /// but provides methods to get chunk byte slices & header data.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Region<'a> {
+pub struct RegionReader<'a> {
     data: &'a [u8],
 }
 
-impl<'a> Region<'a> {
+impl<'a> RegionReader<'a> {
     /// Initializes a new region  
     /// Validates that the region size is at least the size of the header
-    pub fn new(data: &'a [u8]) -> Result<Region<'a>, McaError> {
+    pub fn new(data: &'a [u8]) -> Result<RegionReader<'a>, McaError> {
         if data.len() < (SECTOR_SIZE * 2) {
             return Err(McaError::MissingHeader);
         }
 
-        Ok(Region { data })
+        Ok(RegionReader { data })
     }
 
     /// Get the inner data of the region
@@ -43,7 +41,7 @@ impl<'a> Region<'a> {
         // just so we dont have to call .len() more than needed, data len stays the same
         let data_len = self.data.len();
 
-        let offset = Region::chunk_offset(x, z);
+        let offset = RegionReader::chunk_offset(x, z);
 
         let chunk_location = match self.get_location(offset) {
             Some(loc) => loc,
@@ -201,7 +199,7 @@ impl<'a> Region<'a> {
 /// An iterator over all chunks inside a region
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RegionIter<'a> {
-    region: &'a Region<'a>,
+    region: &'a RegionReader<'a>,
     index: usize,
 }
 

@@ -1,9 +1,9 @@
-use std::io::Read;
-
 use crate::{compression::CompressionType, McaError};
 
 /// A raw compressed chunk, holds the compression type used.  
 /// And the specific chunk byte slice from the region data
+///
+/// This is used when getting chunk data **from** a region file.  
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RawChunk<'a> {
     pub raw_data: &'a [u8],
@@ -22,19 +22,7 @@ impl<'a> RawChunk<'a> {
     /// let data = chunk.decompress()?;
     /// ```
     pub fn decompress(&self) -> Result<Vec<u8>, McaError> {
-        match self.compression_type {
-            CompressionType::Zlib => Ok(miniz_oxide::inflate::decompress_to_vec_zlib(
-                &self.raw_data,
-            )?),
-            CompressionType::Uncompressed => Ok(self.raw_data.to_vec()),
-            CompressionType::LZ4 => Ok({
-                let mut buf: Vec<u8> = Vec::new();
-                lz4_java_wrc::Lz4BlockInput::new(&self.raw_data[..]).read_to_end(&mut buf).unwrap();
-                buf
-            }),
-            CompressionType::GZip => unimplemented!("This is unused in practice and if you somehow need this, make an issue on github and i'll add it <3"),
-            CompressionType::Custom => unimplemented!("Haven't implemented this and i don't personally need this but make an issue on github and i'll fix it <3")
-        }
+        self.compression_type.decompress(&self.raw_data)
     }
 
     /// Get the chunks [`CompressionType`]
@@ -48,5 +36,47 @@ impl<'a> RawChunk<'a> {
             raw_data: data,
             compression_type: compression,
         }
+    }
+}
+
+/// A `pending` chunk, holds all metadata used in region chunk payloads.  
+///
+/// This is used when **writing** region files.  
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PendingChunk {
+    pub compressed_data: Vec<u8>,
+    pub compression: CompressionType,
+    pub timestamp: u32,
+    pub coordinate: (u8, u8),
+}
+
+impl PendingChunk {
+    /// Create a new pending chunk
+    ///
+    /// ## Example
+    /// ```ignore
+    /// use mca::{PendingChunk, CompressionType};
+    ///
+    /// let data: &[u8] = // ...
+    ///
+    /// let chunk = PendingChunk::new(&data, CompressionType::LZ4, 1724372177, (4, 6));
+    /// ```
+    pub fn new(
+        raw_data: &[u8],
+        compression: CompressionType,
+        timestamp: u32,
+        coordinate: (u8, u8),
+    ) -> Result<PendingChunk, McaError> {
+        assert!(coordinate.0 < 32);
+        assert!(coordinate.1 < 32);
+
+        let compressed_data = compression.compress(&raw_data)?;
+
+        Ok(PendingChunk {
+            compressed_data,
+            compression,
+            timestamp,
+            coordinate,
+        })
     }
 }
