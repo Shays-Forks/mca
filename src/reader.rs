@@ -25,7 +25,7 @@ impl<'a> RegionReader<'a> {
         self.data
     }
 
-    /// Get a offset depending on the chunk coordinates.  
+    /// Get an offset depending on the chunk coordinates.  
     /// Used in getting byte offsets for chunk location & timestamp in headers
     #[inline(always)]
     pub fn chunk_offset(x: usize, z: usize) -> usize {
@@ -35,7 +35,7 @@ impl<'a> RegionReader<'a> {
         4 * ((x & 31) + (z & 31) * 32)
     }
 
-    /// Get a single [`RawChunk`] based of it's chunk coordinates relative to the region itself.  
+    /// Get a single [`RawChunk`] based of its chunk coordinates relative to the region itself.  
     /// Will return [`None`] if chunk hasn't been generated yet.
     pub fn get_chunk(&self, x: usize, z: usize) -> Result<Option<RawChunk>, McaError> {
         // just so we dont have to call .len() more than needed, data len stays the same
@@ -49,11 +49,11 @@ impl<'a> RegionReader<'a> {
         };
 
         // fill the first byte when doing the 3 first chunk location offset
-        let endians =
+        let endian =
             u32::from_be_bytes([0, chunk_location[0], chunk_location[1], chunk_location[2]])
                 as usize;
 
-        let payload_offset: usize = endians * SECTOR_SIZE;
+        let payload_offset: usize = endian * SECTOR_SIZE;
 
         if data_len < (payload_offset + 4) {
             return Err(McaError::InvalidChunkPayload(
@@ -121,7 +121,7 @@ impl<'a> RegionReader<'a> {
             let first = *self.data.get_unchecked(offset);
             let last = *self.data.get_unchecked(offset + 3);
 
-            // Empty chunk locations, hasnt been generated if None
+            // Empty chunk locations, hasn't been generated if None
             if first == 0 && last == 0 {
                 return None;
             }
@@ -203,7 +203,7 @@ pub struct RegionIter<'a> {
     index: usize,
 }
 
-impl<'a> RegionIter<'a> {
+impl RegionIter<'_> {
     /// The max size of chunks inside one region
     pub const MAX: usize = 32 * 32;
 

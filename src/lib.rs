@@ -74,7 +74,7 @@ mod tests {
     fn get_timestamp() {
         let region = RegionReader::new(REGION).unwrap();
         #[cfg(feature = "unsafe")]
-        let timestamp = reader.get_timestamp(RegionReader::chunk_offset(0, 0));
+        let timestamp = region.get_timestamp(RegionReader::chunk_offset(0, 0));
 
         #[cfg(not(feature = "unsafe"))]
         let timestamp = region

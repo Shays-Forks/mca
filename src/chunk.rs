@@ -10,8 +10,8 @@ pub struct RawChunk<'a> {
     compression_type: CompressionType,
 }
 
-impl<'a> RawChunk<'a> {
-    /// Decompresses the raw chunk data depending on it's compression type
+impl RawChunk<'_> {
+    /// Decompresses the raw chunk data depending on its compression type
     ///
     /// ## Example
     /// ```ignore
@@ -22,7 +22,7 @@ impl<'a> RawChunk<'a> {
     /// let data = chunk.decompress()?;
     /// ```
     pub fn decompress(&self) -> Result<Vec<u8>, McaError> {
-        self.compression_type.decompress(&self.raw_data)
+        self.compression_type.decompress(self.raw_data)
     }
 
     /// Get the chunks [`CompressionType`]
@@ -30,8 +30,8 @@ impl<'a> RawChunk<'a> {
         self.compression_type.clone()
     }
 
-    /// Creates a new raw chunk from it's bytes and compression type
-    pub fn new(data: &'a [u8], compression: CompressionType) -> RawChunk {
+    /// Creates a new raw chunk from its bytes and compression type
+    pub fn new(data: &[u8], compression: CompressionType) -> RawChunk {
         RawChunk {
             raw_data: data,
             compression_type: compression,
@@ -70,7 +70,7 @@ impl PendingChunk {
         assert!(coordinate.0 < 32);
         assert!(coordinate.1 < 32);
 
-        let compressed_data = compression.compress(&raw_data)?;
+        let compressed_data = compression.compress(raw_data)?;
 
         Ok(PendingChunk {
             compressed_data,

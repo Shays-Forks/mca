@@ -52,11 +52,11 @@ impl CompressionType {
     /// Takes in a byte slice and uses the current compression type to **compress** the data
     pub fn compress(&self, data: &[u8]) -> Result<Vec<u8>, McaError> {
         match self {
-            CompressionType::Zlib => Ok(miniz_oxide::deflate::compress_to_vec_zlib(&data, 4)),
+            CompressionType::Zlib => Ok(miniz_oxide::deflate::compress_to_vec_zlib(data, 4)),
             CompressionType::Uncompressed => Ok(data.to_vec()),
             CompressionType::LZ4 => Ok({
                 let mut buf: Vec<u8> = Vec::new();
-                lz4_java_wrc::Lz4BlockOutput::new(&mut buf).write_all(&data)?;
+                lz4_java_wrc::Lz4BlockOutput::new(&mut buf).write_all(data)?;
                 buf
             }),
             CompressionType::GZip => unimplemented!("This is unused in practice and if you somehow need this, make an issue on github and i'll add it <3"),
@@ -68,12 +68,12 @@ impl CompressionType {
     pub fn decompress(&self, data: &[u8]) -> Result<Vec<u8>, McaError> {
         match self {
             CompressionType::Zlib => Ok(miniz_oxide::inflate::decompress_to_vec_zlib(
-                &data,
+                data,
             )?),
             CompressionType::Uncompressed => Ok(data.to_vec()),
             CompressionType::LZ4 => Ok({
                 let mut buf: Vec<u8> = Vec::new();
-                lz4_java_wrc::Lz4BlockInput::new(&data[..]).read_to_end(&mut buf)?;
+                lz4_java_wrc::Lz4BlockInput::new(data).read_to_end(&mut buf)?;
                 buf
             }),
             CompressionType::GZip => unimplemented!("This is unused in practice and if you somehow need this, make an issue on github and i'll add it <3"),

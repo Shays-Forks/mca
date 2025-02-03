@@ -7,7 +7,7 @@ use std::{
 use crate::{chunk::PendingChunk, CompressionType, McaError, SECTOR_SIZE};
 
 /// A writer used to write chunks to a region (`mca`) file.  
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RegionWriter {
     chunks: Vec<PendingChunk>,
 }
@@ -22,7 +22,7 @@ impl RegionWriter {
 
     /// Creates a new region writer
     pub fn new() -> RegionWriter {
-        RegionWriter { chunks: vec![] }
+        Self::default()
     }
 
     /// Pushes a raw chunk into the writer  
@@ -31,7 +31,7 @@ impl RegionWriter {
     /// Timestamp will be current time since [`UNIX_EPOCH`], use [`push_pending_chunk`] to override it.  
     pub fn push_chunk(&mut self, raw_data: &[u8], coordinate: (u8, u8)) -> Result<(), McaError> {
         let chunk = PendingChunk::new(
-            &raw_data,
+            raw_data,
             CompressionType::LZ4,
             RegionWriter::get_current_timestamp(),
             coordinate,
@@ -50,7 +50,7 @@ impl RegionWriter {
         compression_type: CompressionType,
     ) -> Result<(), McaError> {
         let chunk = PendingChunk::new(
-            &raw_data,
+            raw_data,
             compression_type,
             RegionWriter::get_current_timestamp(),
             coordinate,
@@ -81,13 +81,14 @@ impl RegionWriter {
     ///
     /// std::fs::File::write("r.0.0.mca", &buf).unwrap();
     /// ```
-    pub fn write<'a, W>(&self, w: &'a mut W) -> Result<(), McaError>
+    pub fn write<W>(&self, w: &mut W) -> Result<(), McaError>
     where
         W: Write,
     {
         // payload prepping, needed for location header, hence it first
         let mut chunk_offsets: HashMap<(u8, u8), usize> = HashMap::new();
-        let mut chunk_map: HashMap<(u8, u8), &PendingChunk> = HashMap::new(); // dont know the perf hit for this but this can for sure be removed
+        // don't know the perf hit for this but this can for sure be removed
+        let mut chunk_map: HashMap<(u8, u8), &PendingChunk> = HashMap::new();
 
         let mut curr_chunk_offset: usize = SECTOR_SIZE * 2; // init pos for chunks
         let mut payloads: Vec<u8> = vec![];
@@ -103,7 +104,7 @@ impl RegionWriter {
             payload_len += payloads.write(&[compression])?;
             payload_len += payloads.write(&chunk.compressed_data)?;
 
-            // pad the chunk so its always in sector chunks
+            // pad the chunk so It's always in sector chunks
             let remaining = SECTOR_SIZE - (payload_len % SECTOR_SIZE);
             let padding = std::iter::repeat(0u8).take(remaining).collect::<Vec<u8>>();
             payload_len += payloads.write(&padding)?;
@@ -112,7 +113,7 @@ impl RegionWriter {
             chunk_map.insert(chunk.coordinate, chunk);
 
             // offset it by current + how many bytes we just wrote
-            curr_chunk_offset = curr_chunk_offset + payload_len;
+            curr_chunk_offset += payload_len;
         }
 
         // location header
@@ -121,25 +122,26 @@ impl RegionWriter {
                 let offset = match chunk_offsets.get(&(z as u8, x as u8)) {
                     Some(offset) => offset,
                     None => {
-                        w.write(&[0, 0, 0, 0])?;
+                        w.write_all(&[0, 0, 0, 0])?;
                         continue;
                     }
                 };
 
-                let chunk = chunk_map.get(&(z as u8, x as u8)).unwrap(); // handle this unwrap but this shouldnt be possible when we have the above statement
+                // handle this unwrap but this shouldn't be possible when we have the above statement
+                let chunk = chunk_map.get(&(z as u8, x as u8)).unwrap();
 
                 let offset_bytes = {
                     let be = ((*offset / SECTOR_SIZE) as u32).to_be_bytes();
                     [be[1], be[2], be[3]]
                 };
 
-                w.write(&offset_bytes)?;
+                w.write_all(&offset_bytes)?;
 
                 let sector_count = ((chunk.compressed_data.len() + 4 + 1) as f32
                     / SECTOR_SIZE as f32)
                     .ceil() as u8;
 
-                w.write(&[sector_count])?;
+                w.write_all(&[sector_count])?;
             }
         }
 
@@ -159,8 +161,7 @@ impl RegionWriter {
             }
         }
 
-        w.write(&payloads)?;
-
+        w.write_all(&payloads)?;
         w.flush()?;
 
         Ok(())
