@@ -1,4 +1,3 @@
-
 [package]
 name = "mca"
 description = "Read / Write Minecraft Region Files (mca)"
@@ -13,15 +12,15 @@ keywords = ["minecraft", "region", "mca", "parser", "chunk"]
 categories = ["game-development", "parsing"]
 
 [dependencies]
-thiserror = "1.0"
-miniz_oxide = { version = "0.8.0", features = ["std"] }
-lz4-java-wrc = "0.2.0"
+lz4-java-wrc = "0.2"
+miniz_oxide = { version = "0.8", features = ["std"] }
+thiserror = "2"
 
 [dev-dependencies]
-criterion = "0.5.1"
-mca-parser = "1.0.2"
-sculk = { git = "https://github.com/VilleOlof/sculk" }
-simdnbt = "0.6.0"
+criterion = "0.5"
+mca-parser = "1"
+sculk = "0.2"
+simdnbt = "0.7"
 
 [[bench]]
 name = "region_parsing"
